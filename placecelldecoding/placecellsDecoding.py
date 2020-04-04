@@ -8,6 +8,7 @@ import numpy as np
 import scipy.io as spio
 import matplotlib.pyplot as plt
 from scipy.special import factorial
+from scipy.optimize import minimize
  
 # compute firing rate
 def computeFiringRates(st, tstart, tend, tau):
@@ -43,7 +44,7 @@ def computeLikelihood(spkC, plFields, tau):
     for i in range(nTimeBins):
         nSpikes = np.array([spkC[i,:]]*xyBins)
         maxL = poisspdf(nSpikes,pFields)
-        maxL = np.prod(maxL,1)
+        maxL = np.prod(maxL,1) # product
         likelihood[:,i] = maxL
     return likelihood
 
@@ -59,7 +60,7 @@ Trial2Start, Trial2End = data['Trial2Start'][0][0], data['Trial2End'][0][0]
 SpikeTimesTrial3 = data['SpikeTimesTrial3'][0]
 Trial3Start, Trial3End = data['Trial3Start'][0][0], data['Trial3End'][0][0]
 
-# view the animal's trajectory
+# view the animal's 1D trajectory
 plt.figure()
 plt.plot(TimestampPosition, AnimalPosition)
 plt.xlabel('Time (sec)', fontsize=16)
@@ -73,25 +74,25 @@ cell_fr_order = np.argmax(PlaceFields, axis=1)
 cell_fr_order = np.argsort(cell_fr_order)
 PlaceFields_sorted = PlaceFields[cell_fr_order]
 PositionBins = np.round(data['PositionBins'][0],2)
-plt.figure()
-plt.imshow(PlaceFields_sorted, cmap='jet')
-xtl = np.arange(0,PlaceFields_sorted.shape[1],20)
-plt.xticks(xtl, PositionBins[xtl])
-plt.xlabel('Position (m)', fontsize=16)
-plt.ylabel('Cell Number', fontsize=16)
-plt.title('1d rate maps', fontsize=16)
-plt.show()
+#plt.figure()
+#plt.imshow(PlaceFields_sorted, cmap='jet')
+#xtl = np.arange(0,PlaceFields_sorted.shape[1],20)
+#plt.xticks(xtl, PositionBins[xtl])
+#plt.xlabel('Position (m)', fontsize=16)
+#plt.ylabel('Cell Number', fontsize=16)
+#plt.title('1d rate maps', fontsize=16)
+#plt.show()
 
 # display the raw neural spike trains recorded from four place cells
 # during one traversal of the animal along the linear track
-plt.figure()
-for i in range(len(SpikeTimesTrial1)):
-    t = np.ravel(SpikeTimesTrial1[i])
-    plt.plot(t, i * np.ones_like(t), 'k.', markersize=5)
-plt.xlabel('Time (sec)', fontsize=16)
-plt.ylabel('Cell Number', fontsize=16)
-plt.title('Trial#1 spikes', fontsize=16)
-plt.show()
+#plt.figure()
+#for i in range(len(SpikeTimesTrial1)):
+#    t = np.ravel(SpikeTimesTrial1[i])
+#    plt.plot(t, i * np.ones_like(t), 'k.', markersize=5)
+#plt.xlabel('Time (sec)', fontsize=16)
+#plt.ylabel('Cell Number', fontsize=16)
+#plt.title('Trial#1 spikes', fontsize=16)
+#plt.show()
 
 """
  Decoding the animal's trajectory using a simple winner-take-all strategy
@@ -135,6 +136,7 @@ plt.plot(TimestampPosition, AnimalPosition, c='b', linewidth=2)
 plt.xlim([Trial1Start, Trial1End])
 plt.xlabel('Time (sec)', fontsize=16)
 plt.ylabel('Position (m)', fontsize=16)
+plt.title('Decoded Trajectory', fontsize=16)
 plt.show()
 
 
@@ -166,7 +168,7 @@ for i in range(5):
     plt.plot(PositionBins, likelihood[:, timeBins[i]])
     plt.xlabel('Position (m)')
     plt.xlim([0,3.6])
-plt.title('Likelihood', fontsize=16)
+plt.suptitle('Likelihood', fontsize=16)
 plt.show()
 
 # decode the animal's position using the maximum likelihood estimate
@@ -177,7 +179,7 @@ trialTimestamps = [[Trial1Start, Trial1End], [Trial2Start, Trial2End], [Trial3St
 nrows=len(trialSpikeTimes)
 ncols=len(tau)
 count = 1
-plt.figure()
+plt.figure(figsize=(16,16))
 for j in range(len(trialSpikeTimes)):
     for i in range(len(tau)):
         # compute spike count in each time bin
@@ -206,4 +208,116 @@ for j in range(len(trialSpikeTimes)):
             plt.yticks([])
         plt.title('Trial' + str(j) + ' tau='+ str(tau[i]), fontsize=12)
         count+=1
+plt.show()
+
+
+"""
+sequential importance resampling (SIR)
+better for place cell decoding since they deal well with the rate of place cells
+is nonlinear function of the position. Sequential Monte Carlo method.
+"""
+
+# Function to compute the log-likelihood for each of the particles
+def computeLogLikelihoods(xtildes, y, param):
+    lls = np.zeros(nparticles)
+    for i in range(nparticles):
+        xdelta = ((xtildes[i, 0] - param[:, 0]) / param[:, 2]) ** 2
+        ydelta = ((xtildes[i, 1] - param[:, 1]) / param[:, 3]) ** 2
+        loglambdas = -0.5 * (xdelta + ydelta) + param[:, 4]
+        lambdas = np.exp(loglambdas)
+        # Compute log-posterior
+        lls[i] = np.sum(loglambdas * y - lambdas)
+    return lls
+
+# Seed the random number generator with the current time
+np.random.seed(999)
+
+# Simulate random walk
+T = 1000  # number of time-steps
+path = np.random.randn(T, 2) * 0.03
+path = np.cumsum(path, axis=0)
+
+# Create place cells
+# Number of place cells
+N = 50  
+# Parameter table for the place cells
+param = np.zeros((N, 5))  
+# Centres of the receptive fields
+param[:, 0:2] = np.random.randn(N, 2)  
+# Size of the receptive fields
+param[:, 2:4] = np.abs(np.random.randn(N, 2)) 
+# location intensity params
+param[:, 4] = np.random.randn(N) * 0.5  
+
+
+# Compute responses of place cells along the traversed path
+R = np.zeros((T, N))  # Spiking responses of the place cells
+spikes = [[] for i in range(N)]  # Raster plot
+for i in range(N):
+    # x,y center of place fields divided by place-field widths
+    r = np.exp(- 0.5 * ((path[:, 0] - param[i, 0]) / param[i, 2]) ** 2)
+    r = r * np.exp(- 0.5 * ((path[:, 1] - param[i, 1]) / param[i, 3]) ** 2)
+    # local intensity params for individual place cells
+    r = r * np.exp(param[i, 4])
+    # firing rate of a ith place cell at time t
+    r = np.random.poisson(r)
+    R[:, i] = r
+    spikes[i] = np.where(r == 1)[0]
+
+# Decoding stage
+nparticles = 1000  # Number of particles
+# Draw from the initial distribution
+xtildes = np.random.randn(nparticles, 2)
+xs = np.zeros((T, 2))
+Ws = np.zeros((T, 2, 2))
+particles = np.zeros((T, nparticles, 2))
+W = np.identity(2) * 0.03 ** 2
+Wsqrt = np.sqrt(W)
+
+for i in range(T):
+    # Compute weights according to w = p(y|x_t)
+    y = R[i]
+    ws = computeLogLikelihoods(xtildes, y, param)
+    # Normalize weights
+    ws = np.exp(ws - np.max(ws))
+    ws = np.divide(ws, np.sum(ws))
+    # Importance sampling with multinomial resampling
+    ns = np.random.multinomial(nparticles, ws)
+    c = 0
+    for j in range(nparticles):
+        for k in range(ns[j]):
+            xtildes[c, :] = xtildes[j, :]
+            c += 1
+    # Store estimates from the ith timestep
+    particles[i, :, :] = xtildes
+    xs[i, :] = np.mean(xtildes, axis=0)
+    Ws[i, :, :] = np.cov(xtildes, rowvar=False)
+    # Propagate each particle through the state equation
+    xtildes = xtildes + np.matmul(Wsqrt, np.random.randn(2, nparticles)).T
+
+
+# Display recorded and decoded path of rat
+plt.figure()
+plt.plot(path[:, 0], path[:, 1], label='Actual path')
+plt.plot(xs[:, 0], xs[:, 1], label='Decoded path')
+plt.legend()
+plt.title('Path of the rat', fontweight='bold')
+plt.show()
+
+# Display recorded and decoded x-coordinate
+plt.figure()
+plt.plot(path[:, 0], label='True')
+plt.plot(xs[:, 0], label='Decoded')
+plt.legend()
+plt.title('x-coordinate', fontweight='bold')
+plt.xlabel('Time (msec)', fontweight='bold')
+plt.show()
+
+# Display recorded and decoded y-coordinate
+plt.figure()
+plt.plot(path[:, 0], label='True')
+plt.plot(xs[:, 0], label='Decoded')
+plt.legend()
+plt.title('y-coordinate', fontweight='bold')
+plt.xlabel('Time (msec)', fontweight='bold')
 plt.show()
