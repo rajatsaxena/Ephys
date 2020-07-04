@@ -5,4 +5,4 @@
 3. detecting cortical up-down states
 4. PCA based reactivation analysis
 5. place cells bayesian decoding
-6. unsupervised Population vector analysis 
+6. representational complexity analysis
