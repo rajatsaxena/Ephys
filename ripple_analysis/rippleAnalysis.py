@@ -43,7 +43,7 @@ def getBestRippleChannel(lfp_data):
 
 # function to find ripple using Deshmukh Lab's method
 def findRippleMK(signal, times, fs, f_ripple=(150,250), duration=[0.015,0.5], 
-                 lookaheadtime=0.5, peakTh=4, falloffTh=1):
+                 lookaheadtime=0.5, peakTh=4, falloffTh=0):
     # filter signal in ripple range
     filt_rip_sig = mea.get_bandpass_filter_signal(signal, fs, f_ripple)
     # Root mean square (RMS) ripple power calculation
@@ -276,6 +276,9 @@ drop_index, countSpiking, ensembleSpikesum, timeSpiking = getSpikeSumThreshold('
 rippleDf['spkSum'] = countSpiking
 rippleDf = rippleDf.drop(drop_index)
 rippleDf = rippleDf.reset_index(drop=True)
+
+# save ripple data
+rippleDf.to_csv('rippleAnalyzed.csv')
 
 # remove running epochs
 hallwaydata = ['hall1_occmap.npy', 'hall2_occmap.npy', 'hall28_occmap.npy']
