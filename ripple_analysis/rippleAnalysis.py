@@ -42,8 +42,8 @@ def getBestRippleChannel(lfp_data):
     return bestChannelNum, meanRipple, medianRipple, mmRippleRatio
 
 # function to find ripple using Deshmukh Lab's method
-def findRippleMK(signal, times, fs, f_ripple=(150,250), duration=[0.015,1.0], 
-                 lookaheadtime=0.5, peakTh=4, falloffTh=1):
+def findRippleMK(signal, times, fs, f_ripple=(150,250), duration=[0.015,0.5], 
+                 lookaheadtime=0.5, peakTh=4, falloffTh=2):
     # filter signal in ripple range
     filt_rip_sig = mea.get_bandpass_filter_signal(signal, fs, f_ripple)
     # Root mean square (RMS) ripple power calculation
@@ -214,7 +214,7 @@ def getSpikeSumThreshold(spktimefname, times, fs, ripDf):
     return drop_index, countHSE, sum_spike_counts, spike_time_bins    
         
 # function to get speed threshold
-def getSpeedThreshold(halldata, ripDf, speedTh=4):
+def getSpeedThreshold(halldata, ripDf, speedTh=3):
     # load speed and position data
     posSpeed = np.array([])
     posTime = np.array([])
@@ -279,7 +279,7 @@ rippleDf = rippleDf.reset_index(drop=True)
 
 # remove running epochs
 hallwaydata = ['hall1_occmap.npy', 'hall2_occmap.npy', 'hall28_occmap.npy']
-drop_index, runningSpeed = getSpeedThreshold(hallwaydata, rippleDf, speedTh=5)
+drop_index, runningSpeed = getSpeedThreshold(hallwaydata, rippleDf, speedTh=3)
 rippleDf['speed'] = runningSpeed
 rippleDf = rippleDf.drop(drop_index)
 rippleDf = rippleDf.reset_index(drop=True)
