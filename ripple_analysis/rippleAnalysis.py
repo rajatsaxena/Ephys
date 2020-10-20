@@ -43,7 +43,7 @@ def getBestRippleChannel(lfp_data):
 
 # function to find ripple using Deshmukh Lab's method
 def findRippleMK(signal, times, fs, f_ripple=(150,250), duration=[0.015,0.5], 
-                 lookaheadtime=0.5, peakTh=4, falloffTh=2):
+                 lookaheadtime=0.5, peakTh=4, falloffTh=1):
     # filter signal in ripple range
     filt_rip_sig = mea.get_bandpass_filter_signal(signal, fs, f_ripple)
     # Root mean square (RMS) ripple power calculation
@@ -56,7 +56,7 @@ def findRippleMK(signal, times, fs, f_ripple=(150,250), duration=[0.015,0.5],
     minThreshTime = duration[0] # minimum duration threshold in seconds
     maxThreshTime = duration[1] # maximum duration threshold in seconds
     ripplePowerThresh = mean_rms + peakTh*std_rms #peak power threshold
-    falloffThresh = mean_rms - falloffTh*std_rms
+    falloffThresh = mean_rms + falloffTh*std_rms
 
     # data to hold the variables
     ripple_duration = []
