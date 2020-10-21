@@ -187,12 +187,12 @@ def findRippleMKv2(signal, times, fs, f_ripple=(150,250), duration=[0.015,1.0],
     return ripple, filt_rip_sig, ripple_power
 
 # function to remove low spiking events
-def getSpikeSumThreshold(spktimefname, times, fs, ripDf):
+def getSpikeSumThreshold(spktimefname, times, fs, ripDf, dt=0.01):
     # load the raw data
     spiketimes = np.load(spktimefname, allow_pickle=True)
     # bin spike count in 10ms to get the Q matrix
     total_time = times[-1]
-    spike_time_bins = np.arange(np.min(times)/fs,total_time, 0.02)
+    spike_time_bins = np.arange(np.min(times)/fs,total_time, dt)
     spike_counts = np.zeros((len(spiketimes), len(spike_time_bins)-1))
     for ind, st in enumerate(spiketimes):
         spike_counts[ind,:], _ = np.histogram(st, bins=spike_time_bins)
@@ -211,7 +211,7 @@ def getSpikeSumThreshold(spktimefname, times, fs, ripDf):
     isHSE = np.array(isHSE)
     countHSE = np.array(countHSE)
     drop_index = np.where(isHSE==False)[0]
-    return drop_index, countHSE, sum_spike_counts, spike_time_bins    
+    return drop_index, countHSE, spike_counts, sum_spike_counts, spike_time_bins    
         
 # function to get speed threshold
 def getSpeedThreshold(halldata, ripDf, speedTh=3):
@@ -272,13 +272,16 @@ lfp_sig = lfp_sig[bestChannel,:]
 # find ripple data
 rippleDf, ripple_filt_sig, ripple_power = findRippleMK(lfp_sig,time,int(fs))
 # remove low spiking events
-drop_index, countSpiking, ensembleSpikesum, timeSpiking = getSpikeSumThreshold('spiketimes_behav.npy', time, fs, rippleDf)
+drop_index, countSpiking, ensembleSpikes, ensembleSpikesum, timeSpiking = getSpikeSumThreshold('spiketimes_behav.npy', time, fs, rippleDf)
 rippleDf['spkSum'] = countSpiking
 rippleDf = rippleDf.drop(drop_index)
 rippleDf = rippleDf.reset_index(drop=True)
 
-# save ripple data
+# save ripple data and other relevant data
 rippleDf.to_csv('rippleAnalyzed.csv')
+np.save('ripple_power.npy', ripple_power)
+np.save('Qbehav.npy', ensembleSpikes)
+np.save('QbehavTime.npy', timeSpiking)
 
 # remove running epochs
 hallwaydata = ['hall1_occmap.npy', 'hall2_occmap.npy', 'hall28_occmap.npy']
@@ -303,7 +306,7 @@ ax[2].plot(time, ripple_power)
 for st,et in zip(rippleDf['start_time'], rippleDf['end_time']):
     ax[2].axvspan(st, et, alpha=0.3, color='gray')
 ax[2].set_ylabel('Ripple Power', fontsize=16)
-ax[2].set_ylim([0,50])
+ax[2].set_ylim([0,100])
 for i, spiketrain in enumerate(spiketimes):
     ax[3].plot(spiketrain, i * np.ones_like(spiketrain), 'k.', markersize=.5)
 for st,et in zip(rippleDf['start_time'], rippleDf['end_time']):
