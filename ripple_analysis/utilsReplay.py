@@ -34,22 +34,22 @@ def placeBayes(Cr, rateMap, binLength):
     rateMap = rateMap.T
     term2 = np.exp((-1)*binLength*np.sum(rateMap.T,0))
     mp = 1./rateMap.shape[1]
-    Pr = []
+    Pr_ = []
     
     c = np.repeat(Cr[:, :, np.newaxis], rateMap.shape[0], axis=2)
     b = np.repeat(rateMap.T[:, :, np.newaxis], c.shape[0], axis=2)
     b = np.moveaxis(b, -1, 0)
     
     u = mp*np.prod(b**c, 1)
-    Pr = u*np.repeat(term2[:,np.newaxis], u.shape[0], axis=1).T
-    Pr = Pr/np.repeat(np.sum(Pr,1)[:,np.newaxis], Pr.shape[1], axis=1)
+    Pr_ = u*np.repeat(term2[:,np.newaxis], u.shape[0], axis=1).T
+    Pr_ = Pr_/np.repeat(np.sum(Pr_,1)[:,np.newaxis], Pr_.shape[1], axis=1)
     
-    m = np.argmax(Pr,1)
-    prMax = m.T
+    m = np.argmax(Pr_,1)
+    prMax_ = m.T
     
-    if np.sum(np.isinf(Pr))>0:
+    if np.sum(np.isinf(Pr_))>0:
         sys.error('Do Not Approach the Infinite')
-    return Pr, prMax
+    return Pr_, prMax_
 
 def fPolyFit(x,y,n):
     V = np.ones((len(x),n+1))

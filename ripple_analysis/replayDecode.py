@@ -79,9 +79,6 @@ rankOrderShuf = np.full((len(rippleEvents),100), np.nan)
 pvalsShuf = np.full((len(rippleEvents),100), np.nan)
 slopeShuf = np.full((len(rippleEvents),100), np.nan)
 integralShuf = np.full((len(rippleEvents),100), np.nan)
-nCellsShuf = np.full((len(rippleEvents),100), np.nan)
-nSpksShuf = np.full((len(rippleEvents),100), np.nan)
-eventDurationShuf = np.full((len(rippleEvents),100), np.nan)
 # data to hold circular shuffling
 bayesRankOrderCircShuf = np.full((len(rippleEvents),100), np.nan)
 linearWeightedCircShuf = np.full((len(rippleEvents),100), np.nan)
@@ -89,12 +86,9 @@ rankOrderCircShuf = np.full((len(rippleEvents),100), np.nan)
 pvalsCircShuf = np.full((len(rippleEvents),100), np.nan)
 slopeCircShuf = np.full((len(rippleEvents),100), np.nan)
 integralCircShuf = np.full((len(rippleEvents),100), np.nan)
-nCellsCircShuf = np.full((len(rippleEvents),100), np.nan)
-nSpksCircShuf = np.full((len(rippleEvents),100), np.nan)
-eventDurationCircShuf = np.full((len(rippleEvents),100), np.nan)
 
 
-plt.figure(figsize=(12,14))
+# plt.figure(figsize=(12,14))
 # iterate through the ripple events
 for event, ripst, ripet in zip(np.arange(len(rippleEvents)),ripple_start_time, ripple_end_time):
     print("Event number: " + str(event))
@@ -139,7 +133,7 @@ for event, ripst, ripet in zip(np.arange(len(rippleEvents)),ripple_start_time, r
             shuf = utilsReplay.shuffleCellID(template[keep,:]) 
             
             # get decoding
-            Pr, prMax = utilsReplay.placeBayes(data[keep,:].T, shuf, 1); 
+            Pr, prMax = utilsReplay.placeBayes(data[keep,:].T, shuf, dt); 
             Pr[np.isnan(Pr)] = 0 
             # bayesRankOrder
             bayesRankOrderShuf[event, i], _ = utilsReplay.corrPearson(np.arange(len(prMax)), prMax)
@@ -152,7 +146,7 @@ for event, ripst, ripet in zip(np.arange(len(rippleEvents)),ripple_start_time, r
             
             # rank order
             idx = np.intersect1d(keep, np.where(np.sum(data, 1)>0)[0])
-            _, _, ord_template = utilsReplay.sort_cells(template[idx,:])
+            _, _, ord_template = utilsReplay.sort_cells(shuf[idx,:])
             _, ord_firstSpk = utilsReplay.sort_rows(data[idx,:])
             rankOrderShuf[event, i], pvalsShuf[event, i] = utilsReplay.corrPearson(ord_template,ord_firstSpk)        
             
@@ -169,7 +163,7 @@ for event, ripst, ripet in zip(np.arange(len(rippleEvents)),ripple_start_time, r
             shuf = utilsReplay.shuffleCircular(template[keep,:])
             
             # get decoding
-            Pr, prMax = utilsReplay.placeBayes(data[keep,:].T, shuf, 1); 
+            Pr, prMax = utilsReplay.placeBayes(data[keep,:].T, shuf, dt); 
             Pr[np.isnan(Pr)] = 0 
             # bayesRankOrder
             bayesRankOrderCircShuf[event, i], _ = utilsReplay.corrPearson(np.arange(len(prMax)), prMax)
@@ -182,7 +176,7 @@ for event, ripst, ripet in zip(np.arange(len(rippleEvents)),ripple_start_time, r
             
             # rank order
             idx = np.intersect1d(keep, np.where(np.sum(data, 1)>0)[0])
-            _, _, ord_template = utilsReplay.sort_cells(template[idx,:])
+            _, _, ord_template = utilsReplay.sort_cells(shuf[idx,:])
             _, ord_firstSpk = utilsReplay.sort_rows(data[idx,:])
             rankOrderCircShuf[event, i], pvalsCircShuf[event, i] = utilsReplay.corrPearson(ord_template,ord_firstSpk)        
             
@@ -193,7 +187,11 @@ for event, ripst, ripet in zip(np.arange(len(rippleEvents)),ripple_start_time, r
                 slopeCircShuf[event, i], integralCircShuf[event, i] = ret[0], ret[1]
             else:
                 slopeCircShuf[event, i], integralCircShuf[event, i] = np.nan, np.nan
-            
+    
+    nCells[event] = sum(sum(counts[keep,:])>0);
+    nSpks[event] = sum(sum(counts[keep,:]))
+    eventDuration[event] = ripet - ripst
+    
     # plt.subplot(4,2,1)
     # plt.scatter(rankOrder,linearWeighted,c='k',marker='.')
     # plt.title('rank ord VS linear weighted')
