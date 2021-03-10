@@ -6,6 +6,8 @@
 4. PCA based reactivation analysis
 5. place cells bayesian decoding
 6. representational complexity analysis
+7. deep lab cut open field behavior tracking
+8. PCA trajectory plots
 
 ### To-Do
 
