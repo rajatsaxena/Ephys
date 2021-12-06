@@ -230,7 +230,7 @@ def getBestThetaChannel(lfp_data, fs=1500):
     return np.nanmean(mea.get_relative_power(P, F))
 
 # load behavior data with timestamps aligned 
-def loadBehavData(fnames):
+def loadBehavData(fnames, combined=False):
     dfh1 = pd.read_csv(fnames[0])
     dfh2 = pd.read_csv(fnames[1])
     dfh3 = pd.read_csv(fnames[2])
@@ -249,11 +249,14 @@ def loadBehavData(fnames):
     speed = np.insert(speed,0,np.nan)
     speed[np.where(speed<0)[0]] = np.nan
     dfBehav['speed'] = speed
-    return dfBehav
+    if combined:
+        return dfBehav
+    else:
+        return dfh1, dfh2, dfh3, dfh4
 
 # function to find ripple using Deshmukh Lab's method
-def findRipple(signal, times, fs, ripple_power, f_ripple=(150,250), duration=[0.015,0.5], 
-                 lookaheadtime=0.5, peakTh=4, falloffTh=1):
+def findRipple(signal, times, fs, ripple_power, spksumtime, spksum, spdtime, speed, f_ripple=(150,250), duration=[0.015,0.5], 
+                 lookaheadtime=0.5, peakTh=4, falloffTh=1, activityRatio=0.35, speedTh=20):
     # calculate mean and standard deviation of the ripple power
     mean_rms = np.nanmean(ripple_power)
     std_rms = np.nanstd(ripple_power)
@@ -272,6 +275,7 @@ def findRipple(signal, times, fs, ripple_power, f_ripple=(150,250), duration=[0.
     ripple_peak_time = []
     ripple_peak_idx = []
     ripple_peak_amp = []
+    ripple_act = []
     
     # iterate to find the ripple peaks
     idx=0
@@ -292,7 +296,17 @@ def findRipple(signal, times, fs, ripple_power, f_ripple=(150,250), duration=[0.
             if startidx is not None and endidx is not None:    
                 # duration CHECK!
                 dur = times[endidx]-times[startidx]
-                if dur>=minThreshTime and dur<=maxThreshTime:
+                spkstind, _ = mea.find_le(spksumtime, times[startidx]-0.15)
+                spketind, _ = mea.find_ge(spksumtime, times[endidx]+0.15)
+                cellactiveratio = np.nanmax(spksum[spkstind:spketind])/np.nanmax(spksum)
+                spdstind, _ = mea.find_le(spdtime, times[startidx])
+                spdetind, _ = mea.find_ge(spdtime, times[endidx])
+                spd_ = speed[spdstind:spdetind]
+                if len(spd_)>0:
+                    spd_ = np.nanmin(spd_)
+                else:
+                    spd_ = 0
+                if dur>=minThreshTime and dur<=maxThreshTime and cellactiveratio>=activityRatio and spd_<=speedTh:
                     ripple_duration.append(dur)
                     ripple_start_idx.append(startidx)
                     ripple_end_idx.append(endidx)
@@ -301,6 +315,7 @@ def findRipple(signal, times, fs, ripple_power, f_ripple=(150,250), duration=[0.
                     ripple_end_time.append(times[endidx])
                     ripple_peak_time.append(times[idx])
                     ripple_peak_amp.append(ripple_power[idx])
+                    ripple_act.append(cellactiveratio)
                 idx = endidx+1
             else:
                 idx+=1
@@ -316,5 +331,55 @@ def findRipple(signal, times, fs, ripple_power, f_ripple=(150,250), duration=[0.
     # ripple['end_idx'] = ripple_end_idx
     # ripple['peak_idx'] = ripple_peak_idx
     ripple['duration'] = np.array(ripple_end_time) - np.array(ripple_start_time)
+    ripple['act_ratio'] = ripple_act
     ripple = pd.DataFrame(ripple)
     return ripple
+
+
+# multiple arg pass
+def multi_run_wrapper_swr(args):
+   return calcSWRmodulation(*args)
+
+
+# function to calculate SWR modulation
+def calcSWRmodulation(spktime, peak_ripple_time, window_time=1, 
+                      pethbins=np.arange(-1,1.02,0.02), numShufIter=5000):
+    realbinpeth = []
+    shufbinpeth = []
+    # for each swr epoch calculate peth and shuffled peth
+    for pt in peak_ripple_time:
+        spk = spktime[(spktime>pt-window_time) & (spktime<pt+window_time)]
+        if len(spk):
+            spk = spk - pt
+            count, edges = np.histogram(spk, pethbins)
+            realbinpeth.append(count)
+            
+            # run for 5000 iteration
+            shufcount = []
+            for itr in range(numShufIter):
+                spkshuf = spk + np.random.uniform(-0.5,0.5,1)[0]
+                count, edges = np.histogram(spkshuf, pethbins)
+                shufcount.append(count)
+            shufbinpeth.append(np.array(shufcount))
+    realbinpeth = np.array(realbinpeth)
+    shufbinpeth = np.array(shufbinpeth)
+    
+    # calculate swr modulation index
+    stidx = np.where(pethbins>=0)[0][0]
+    etidx = np.where(pethbins<0.2)[0][-1]
+    obsmod = np.nanmean(realbinpeth[:,stidx:etidx],0)
+    shufmod = np.nanmean(shufbinpeth[:,:,stidx:etidx],0)
+    shufmodmean = np.nanmean(shufmod,0)
+    
+    # get significance 
+    obsmodidx = np.nansum(obsmod - shufmodmean)**2
+    shufmodidx = np.nansum(shufmod - shufmodmean,1)**2
+    pval = 1 - sum(obsmodidx>shufmodidx)/numShufIter
+    
+    # get modulation direction (1-200ms) - (-500ms+(-100ms))
+    bstidx = np.where(pethbins>=-0.5)[0][0]
+    betidx = np.where(pethbins<-0.1)[0][-1]
+    diffwbaseline = np.nanmean(realbinpeth[:,stidx:etidx]) - np.nanmean(realbinpeth[:,bstidx:betidx])
+    moddirection = diffwbaseline/np.nanmean(realbinpeth[:,bstidx:betidx])
+    
+    return [realbinpeth, shufbinpeth, pval, moddirection]

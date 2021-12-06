@@ -92,3 +92,5 @@ print("Finished TMI shuffling calculation")
 
 df.to_csv('./opTMI/VR19processedmetrics_iHC.csv')
 np.save('./opTMI/VR19spikephase_iHC.npy', spikePhase)
+
+pool.close()
