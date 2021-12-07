@@ -38,12 +38,16 @@ def find_le(a, x):
     i = bisect.bisect_right(a, x)
     if i:
         return i-1, a[i-1]
+    else:
+        return np.nan, np.nan
 
 #Find leftmost item greater than or equal to x
 def find_ge(a, x):
     i = bisect.bisect_left(a, x)
     if i != len(a):
         return i, a[i]
+    else:
+        return np.nan, np.nan
 
 # get spike sum for all units
 def getSpikeSum(spktimes, timebin):
@@ -336,11 +340,6 @@ def findRipple(signal, times, fs, ripple_power, spksumtime, spksum, spdtime, spe
     return ripple
 
 
-# multiple arg pass
-def multi_run_wrapper_swr(args):
-   return calcSWRmodulation(*args)
-
-
 # function to calculate SWR modulation
 def calcSWRmodulation(spktime, peak_ripple_time, window_time=1, 
                       pethbins=np.arange(-1,1.02,0.02), numShufIter=5000):
@@ -351,14 +350,14 @@ def calcSWRmodulation(spktime, peak_ripple_time, window_time=1,
         spk = spktime[(spktime>pt-window_time) & (spktime<pt+window_time)]
         if len(spk):
             spk = spk - pt
-            count, edges = np.histogram(spk, pethbins)
+            count, _ = np.histogram(spk, pethbins)
             realbinpeth.append(count)
             
             # run for 5000 iteration
             shufcount = []
             for itr in range(numShufIter):
                 spkshuf = spk + np.random.uniform(-0.5,0.5,1)[0]
-                count, edges = np.histogram(spkshuf, pethbins)
+                count, _ = np.histogram(spkshuf, pethbins)
                 shufcount.append(count)
             shufbinpeth.append(np.array(shufcount))
     realbinpeth = np.array(realbinpeth)
@@ -370,6 +369,7 @@ def calcSWRmodulation(spktime, peak_ripple_time, window_time=1,
     obsmod = np.nanmean(realbinpeth[:,stidx:etidx],0)
     shufmod = np.nanmean(shufbinpeth[:,:,stidx:etidx],0)
     shufmodmean = np.nanmean(shufmod,0)
+    del shufbinpeth
     
     # get significance 
     obsmodidx = np.nansum(obsmod - shufmodmean)**2
