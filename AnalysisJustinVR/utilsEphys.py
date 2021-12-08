@@ -118,6 +118,11 @@ def gaussianSmoothing(data, Fs=1500., winlength = 0.032, std=0.004):
     g = [1 / (sigma * np.sqrt(2*np.pi)) * np.exp(-float(x)**2/(2*sigma**2)) for x in r]
     return np.convolve(data, g, mode='same' )
 
+# function to generate normalized 1d array
+def norm1d(arr):
+    arr = arr-np.nanmin(arr)
+    return arr/np.nanmax(arr)
+
 # get spectrogram
 def getSpectrogram(data, Fs=1500, freq_band=(0,250)):
     P, F, T = mea.get_spectrogram(data, Fs, freq_band=freq_band)
@@ -219,7 +224,7 @@ def getTMI(phase, bins=np.arange(0,4*360+15,15)):
     phase = np.array(phase)
     phase = np.concatenate((phase,phase+360,phase+2*360,phase+3*360,phase+4*360))
     count, edges = np.histogram(phase, bins)
-    count = scnd.gaussian_filter1d(count,1.5)
+    count = scnd.gaussian_filter1d(count,2)
     count = np.divide(count, np.nanmax(count))
     count = count[np.where((edges>=360) & (edges<=720))[0]]
     edges = edges[np.where((edges>=360) & (edges<=720))[0]]
@@ -339,10 +344,22 @@ def findRipple(signal, times, fs, ripple_power, spksumtime, spksum, spdtime, spe
     ripple = pd.DataFrame(ripple)
     return ripple
 
+# multiple arg pass
+# def multi_run_wrapper_swrmod(args):
+#    return calcSWRmodulation(*args)
 
 # function to calculate SWR modulation
-def calcSWRmodulation(spktime, peak_ripple_time, window_time=1, 
-                      pethbins=np.arange(-1,1.02,0.02), numShufIter=5000):
+def calcSWRmodulation(spktime, peak_ripple_time=None, window_time=1, 
+                      pethbins=np.arange(-1,1.01,0.01), numShufIter=5000):
+    if peak_ripple_time is None:
+        # load ripple data and throw away all events within 500ms
+        dfRipple = pd.read_csv('./opRipples/ripplesShank2.csv', index_col=0)
+        et = np.array(dfRipple['end_time'][1:])
+        st = np.array(dfRipple['start_time'][:-1])
+        idx = np.where((et - st)<0.5)[0]
+        dfRipple.drop(idx, inplace=True)
+        peak_ripple_time = np.array(dfRipple['peak_time'])
+        del dfRipple, et, st, idx
     realbinpeth = []
     shufbinpeth = []
     # for each swr epoch calculate peth and shuffled peth
@@ -360,8 +377,8 @@ def calcSWRmodulation(spktime, peak_ripple_time, window_time=1,
                 count, _ = np.histogram(spkshuf, pethbins)
                 shufcount.append(count)
             shufbinpeth.append(np.array(shufcount))
-    realbinpeth = np.array(realbinpeth)
-    shufbinpeth = np.array(shufbinpeth)
+    realbinpeth = np.array(realbinpeth, dtype='int')
+    shufbinpeth = np.array(shufbinpeth, dtype='int')
     
     # calculate swr modulation index
     stidx = np.where(pethbins>=0)[0][0]
@@ -377,9 +394,29 @@ def calcSWRmodulation(spktime, peak_ripple_time, window_time=1,
     pval = 1 - sum(obsmodidx>shufmodidx)/numShufIter
     
     # get modulation direction (1-200ms) - (-500ms+(-100ms))
-    bstidx = np.where(pethbins>=-0.5)[0][0]
-    betidx = np.where(pethbins<-0.1)[0][-1]
+    bstidx = np.where(pethbins>=-1)[0][0]
+    betidx = np.where(pethbins<-0.5)[0][-1]
     diffwbaseline = np.nanmean(realbinpeth[:,stidx:etidx]) - np.nanmean(realbinpeth[:,bstidx:betidx])
     moddirection = diffwbaseline/np.nanmean(realbinpeth[:,bstidx:betidx])
     
-    return [realbinpeth, shufbinpeth, pval, moddirection]
+    return [realbinpeth, pval, moddirection]
+
+
+# find cells that are negative and positive modulated
+def getSWRModDat(df, swrpeth, region1, region2=None, negative=True):    
+    if negative:
+        if region2 is not None:
+            index = np.where((df['swrmoddir']<0) & ((df['region']==region1) | (df['region']==region2)))[0]
+        else:
+            index = np.where((df['swrmoddir']<0) & (df['region']==region1))[0]
+    else:
+        if region2 is not None:
+            index = np.where((df['swrmoddir']>=0) & ((df['region']==region1) | (df['region']==region2)))[0]
+        else:
+            index = np.where((df['swrmoddir']>=0) & (df['region']==region1))[0]
+    modunits = swrpeth[index,:]
+    df = df.iloc[index]
+    meanval = scnd.gaussian_filter1d(np.nanmean(modunits,0),4.5)
+    meanval = meanval/np.nanmax(meanval)
+    meanstd = np.nanstd(modunits,0)*0.35
+    return meanval, meanstd
