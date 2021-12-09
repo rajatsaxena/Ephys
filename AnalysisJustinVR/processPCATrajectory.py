@@ -19,7 +19,6 @@ import matplotlib as mpl
 import warnings
 warnings.filterwarnings("ignore")
 from matplotlib.lines import Line2D
-from mpl_toolkits.mplot3d import Axes3D
 from sklearn.preprocessing import StandardScaler
 from scipy.ndimage.filters import gaussian_filter1d
 plt.style.use('tableau-colorblind10')
