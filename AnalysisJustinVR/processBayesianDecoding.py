@@ -63,56 +63,52 @@ def computeLikelihood(spkC, plFields, tau):
 brain_region = 'iHC'
 hallways = [1,2,3,4]
 dirname = '/media/rajat/mcnlab_store2/Research/SPrecordings/Justin_Data/VR19'
-
-cell_idx = None
-if brain_region=='AL1':
-    cluidV2 = np.load(os.path.join(dirname,'AL1spikesorted/spikeClusterID.npy'), allow_pickle=True)
-    dfV2 = pd.read_csv(os.path.join(dirname,'AL1spikesorted/cluster_info.tsv'), delimiter='\t')
-    dfV2 = dfV2[dfV2['cluster_id'].isin(cluidV2)]
-    dfV2['region'] = ['V2']*len(dfV2)
-    dfV2['region'] = np.where((dfV2.region=='V2') & (dfV2.depth<=350),'iHC',dfV2.region)
-    cell_idx = np.where(dfV2['region']=='V2')[0]
-elif brain_region=='AL2':
-    cluidV1 = np.load(os.path.join(dirname,'AL2spikesorted/spikeClusterID.npy'), allow_pickle=True)
-    dfV1 = pd.read_csv(os.path.join(dirname,'AL2spikesorted/cluster_info.tsv'), delimiter='\t')
-    dfV1 = dfV1[dfV1['cluster_id'].isin(cluidV1)]
-    dfV1['region'] = ['V1']*len(dfV1)
-    dfV1['region'] = np.where((dfV1.region=='V1') & (dfV1.depth<=750),'iHC',dfV1.region)
-    cell_idx = np.where(dfV1['region']=='V1')[0]
-elif brain_region=='iHC':
-    cluidV2 = np.load(os.path.join(dirname,'AL1spikesorted/spikeClusterID.npy'), allow_pickle=True)
-    dfV2 = pd.read_csv(os.path.join(dirname,'AL1spikesorted/cluster_info.tsv'), delimiter='\t')
-    dfV2 = dfV2[dfV2['cluster_id'].isin(cluidV2)]
-    dfV2['region'] = ['V2']*len(dfV2)
-    dfV2['region'] = np.where((dfV2.region=='V2') & (dfV2.depth<=350),'iHC',dfV2.region)
-    cell_idx1 = np.where(dfV2['region']=='iHC')[0]
+positionBins = np.arange(0,100,0.5)
     
-    cluidV1 = np.load(os.path.join(dirname,'AL2spikesorted/spikeClusterID.npy'), allow_pickle=True)
-    dfV1 = pd.read_csv(os.path.join(dirname,'AL2spikesorted/cluster_info.tsv'), delimiter='\t')
-    dfV1 = dfV1[dfV1['cluster_id'].isin(cluidV1)]
-    dfV1['region'] = ['V1']*len(dfV1)
-    dfV1['region'] = np.where((dfV1.region=='V1') & (dfV1.depth<=750),'iHC',dfV1.region)
-    cell_idx2 = np.where(dfV1['region']=='iHC')[0]
-else:
-    cell_idx = None
+
+cluidV2 = np.load(os.path.join(dirname,'AL1spikesorted/spikeClusterID.npy'), allow_pickle=True)
+dfV2 = pd.read_csv(os.path.join(dirname,'AL1spikesorted/cluster_info.tsv'), delimiter='\t')
+dfV2 = dfV2[dfV2['cluster_id'].isin(cluidV2)]
+dfV2['region'] = ['V2']*len(dfV2)
+dfV2['region'] = np.where((dfV2.region=='V2') & (dfV2.depth<=350),'iHC',dfV2.region)
+cell_idxV2 = np.where(dfV2['region']=='V2')[0]
+cluidV1 = np.load(os.path.join(dirname,'AL2spikesorted/spikeClusterID.npy'), allow_pickle=True)
+dfV1 = pd.read_csv(os.path.join(dirname,'AL2spikesorted/cluster_info.tsv'), delimiter='\t')
+dfV1 = dfV1[dfV1['cluster_id'].isin(cluidV1)]
+dfV1['region'] = ['V1']*len(dfV1)
+dfV1['region'] = np.where((dfV1.region=='V1') & (dfV1.depth<=750),'iHC',dfV1.region)
+cell_idxV1 = np.where(dfV1['region']=='V1')[0]
+
+cluidV2 = np.load(os.path.join(dirname,'AL1spikesorted/spikeClusterID.npy'), allow_pickle=True)
+dfV2 = pd.read_csv(os.path.join(dirname,'AL1spikesorted/cluster_info.tsv'), delimiter='\t')
+dfV2 = dfV2[dfV2['cluster_id'].isin(cluidV2)]
+dfV2['region'] = ['V2']*len(dfV2)
+dfV2['region'] = np.where((dfV2.region=='V2') & (dfV2.depth<=350),'iHC',dfV2.region)
+cell_idx1 = np.where(dfV2['region']=='iHC')[0]
+
+cluidV1 = np.load(os.path.join(dirname,'AL2spikesorted/spikeClusterID.npy'), allow_pickle=True)
+dfV1 = pd.read_csv(os.path.join(dirname,'AL2spikesorted/cluster_info.tsv'), delimiter='\t')
+dfV1 = dfV1[dfV1['cluster_id'].isin(cluidV1)]
+dfV1['region'] = ['V1']*len(dfV1)
+dfV1['region'] = np.where((dfV1.region=='V1') & (dfV1.depth<=750),'iHC',dfV1.region)
+cell_idx2 = np.where(dfV1['region']=='iHC')[0]
 
 
 decodingError = []
 for hallnum in hallways:
     # load rate maps data
-    if brain_region!='iHC':
-        placeFields = np.load(os.path.join(dirname, 'analyzed', 'Ratemaps'+brain_region,'hall'+str(hallnum)+'_ratemap.npy'), allow_pickle=True)
-    else:
-        placeFields1 = np.load(os.path.join(dirname, 'analyzed', 'RatemapsAL1','hall'+str(hallnum)+'_ratemap.npy'), allow_pickle=True)
-        placeFields1 = placeFields1[cell_idx1,:]
-        placeFields2 = np.load(os.path.join(dirname, 'analyzed', 'RatemapsAL2','hall'+str(hallnum)+'_ratemap.npy'), allow_pickle=True)
-        placeFields2 = placeFields2[cell_idx2,:]
-        placeFields = np.concatenate((placeFields1, placeFields2),0)
-    if cell_idx is not None:
-        placeFields = placeFields[cell_idx,:]
-    cell_fr_order = np.argmax(placeFields, axis=1)
-    cell_fr_order = np.argsort(cell_fr_order)
-    placeFieldsSorted = placeFields[cell_fr_order]
+    placeFieldsHC = np.load(os.path.join(dirname, 'analyzed', 'RatemapsHC','hall'+str(hallnum)+'_ratemap.npy'), allow_pickle=True)
+    placeFieldsV2 = np.load(os.path.join(dirname, 'analyzed', 'RatemapsAL1','hall'+str(hallnum)+'_ratemap.npy'), allow_pickle=True)
+    placeFieldsV2 = placeFieldsV2[cell_idxV2,:]
+    placeFieldsV1 = np.load(os.path.join(dirname, 'analyzed', 'RatemapsAL2','hall'+str(hallnum)+'_ratemap.npy'), allow_pickle=True)
+    placeFieldsV1 = placeFieldsV1[cell_idxV1,:]
+    
+    placeFields1 = np.load(os.path.join(dirname, 'analyzed', 'RatemapsAL1','hall'+str(hallnum)+'_ratemap.npy'), allow_pickle=True)
+    placeFields1 = placeFields1[cell_idx1,:]
+    placeFields2 = np.load(os.path.join(dirname, 'analyzed', 'RatemapsAL2','hall'+str(hallnum)+'_ratemap.npy'), allow_pickle=True)
+    placeFields2 = placeFields2[cell_idx2,:]
+    placeFieldsiHC = np.concatenate((placeFields1, placeFields2),0)
+    
     print("Finished loading rate maps")
     
     # load behavior data
@@ -125,61 +121,89 @@ for hallnum in hallways:
         hallwayTrialEndTs.append(b['intantime'][-1])
     hallwayTrialStartTs = np.array(hallwayTrialStartTs)
     hallwayTrialEndTs = np.array(hallwayTrialEndTs)
-    positionBins = np.arange(0,100)
     print("Finished loading behavior data")
     
     # load spiking data and sort it based on trial start and end
-    if brain_region!='iHC':
-        spiketimes = np.load(os.path.join(dirname, brain_region+'spikesorted','spiketimes.npy'), allow_pickle=True)
-    else:
-        spiketimes1 = np.load(os.path.join(dirname, 'AL1spikesorted','spiketimes.npy'), allow_pickle=True)
-        spiketimes1 = spiketimes1[cell_idx1]
-        spiketimes2 = np.load(os.path.join(dirname, 'AL2spikesorted','spiketimes.npy'), allow_pickle=True)
-        spiketimes2 = spiketimes2[cell_idx2]
-        spiketimes = np.concatenate((spiketimes1, spiketimes2))
-    if cell_idx is not None:
-        spiketimes = spiketimes[cell_idx]
-    spiketimesTrial = []
+    spiketimesHC = np.load(os.path.join(dirname, 'HCspikesorted','spiketimes.npy'), allow_pickle=True)
+    spiketimes1 = np.load(os.path.join(dirname, 'AL1spikesorted','spiketimes.npy'), allow_pickle=True)
+    spiketimesV2 = spiketimes1[cell_idxV2]
+    spiketimes2 = np.load(os.path.join(dirname, 'AL2spikesorted','spiketimes.npy'), allow_pickle=True)
+    spiketimesV1 = spiketimes2[cell_idxV1]
+    spiketimes1 = spiketimes1[cell_idx1]
+    spiketimes2 = spiketimes2[cell_idx2]
+    spiketimesiHC = np.concatenate((spiketimes1, spiketimes2))
+    
+    
+    spiketimesHCTrial = []
+    spiketimesV2Trial = []
+    spiketimesV1Trial = []
+    spiketimesiHCTrial = []
     for st, et in zip(hallwayTrialStartTs, hallwayTrialEndTs):
-        spkt_trial = []
-        for spkt in spiketimes:
-            spkt_trial.append(spkt[np.where((spkt>=st) & (spkt<=et))[0]])
-        spkt_trial = np.array(spkt_trial)
-        spiketimesTrial.append(spkt_trial)
-    spiketimesTrial = np.array(spiketimesTrial)
-    print("Finished loading spike times acros trials")
+        spkt_trial_HC = []
+        spkt_trial_iHC = []
+        spkt_trial_V2 = []
+        spkt_trial_V1 = []
+        for spkt in spiketimesHC:
+            spkt_trial_HC.append(spkt[np.where((spkt>=st) & (spkt<=et))[0]])
+        for spkt in spiketimesV2:
+            spkt_trial_V2.append(spkt[np.where((spkt>=st) & (spkt<=et))[0]])
+        for spkt in spiketimesV1:
+            spkt_trial_V1.append(spkt[np.where((spkt>=st) & (spkt<=et))[0]])
+        for spkt in spiketimesiHC:
+            spkt_trial_iHC.append(spkt[np.where((spkt>=st) & (spkt<=et))[0]])
+        spiketimesHCTrial.append(np.array(spkt_trial_HC))
+        spiketimesV2Trial.append(np.array(spkt_trial_V2))
+        spiketimesV1Trial.append(np.array(spkt_trial_V1))
+        spiketimesiHCTrial.append(np.array(spkt_trial_iHC))
+    spiketimesHCTrial = np.array(spiketimesHCTrial)
+    spiketimesV2Trial = np.array(spiketimesV2Trial)
+    spiketimesV1Trial = np.array(spiketimesV1Trial)
+    spiketimesiHCTrial = np.array(spiketimesiHCTrial)
+    print("Finished loading spike times across trials")
     
     
     # decode the animal's position using the maximum likelihood estimate
     # different values of tau and three different trials
-    tau = 0.5
-    decodingErrorHall = []
+    tau = 1
     count = 1
+    Ntrials = 40 #len(spiketimesHCTrial)
     plt.figure(figsize=(16, 16))
-    for j in range(len(spiketimesTrial)):
+    for j in range(Ntrials):
         nTimeBins = int((hallwayTrialEndTs[j]-hallwayTrialStartTs[j])/tau)
         if nTimeBins>1:
             # compute spike count in each time bin
-            spikeCounts = computeSpikeCounts(spiketimesTrial[j], hallwayTrialStartTs[j], hallwayTrialEndTs[j], tau)
+            spikeCountsHC = computeSpikeCounts(spiketimesHCTrial[j], hallwayTrialStartTs[j], hallwayTrialEndTs[j], tau)
+            spikeCountsV2 = computeSpikeCounts(spiketimesV2Trial[j], hallwayTrialStartTs[j], hallwayTrialEndTs[j], tau)
+            spikeCountsV1 = computeSpikeCounts(spiketimesV1Trial[j], hallwayTrialStartTs[j], hallwayTrialEndTs[j], tau)
+            spikeCountsiHC = computeSpikeCounts(spiketimesiHCTrial[j], hallwayTrialStartTs[j], hallwayTrialEndTs[j], tau)
             # compute likelihood
-            likelihood = computeLikelihood(spikeCounts, placeFields, tau)
-            if likelihood.shape[1]:
-                index = np.argmax(likelihood, 0)
-                # get decoded position
-                decodedX = positionBins[index]  # decode data
+            likelihoodHC = computeLikelihood(spikeCountsHC, placeFieldsHC, tau)
+            likelihoodV2 = computeLikelihood(spikeCountsV2, placeFieldsV2, tau)
+            likelihoodV1 = computeLikelihood(spikeCountsV1, placeFieldsV1, tau)
+            likelihoodiHC = computeLikelihood(spikeCountsiHC, placeFieldsiHC, tau)
+            if likelihoodHC.shape[1] and likelihoodV1.shape[1] and likelihoodV2.shape[1] and likelihoodiHC.shape[1]:
+                index = np.argmax(likelihoodHC, 0)
+                decodedXHC = positionBins[index]  # decoded data
+                index = np.argmax(likelihoodV2, 0)
+                decodedXV2 = positionBins[index]  # decoded data
+                index = np.argmax(likelihoodV1, 0)
+                decodedXV1 = positionBins[index]  # decoded data
+                index = np.argmax(likelihoodiHC, 0)
+                decodedXiHC = positionBins[index]  # decoded data
                 windows = np.linspace(hallwayTrialStartTs[j], hallwayTrialEndTs[j], nTimeBins-1)
                 windows2 =  np.linspace(hallwayTrialStartTs[j], hallwayTrialEndTs[j], nTimeBins)
                 behav = behavdat[j]  # actual trajectory
                 inds = np.digitize(behav['intantime'], windows2)
                 trueX = behav['pos']
                 trueXbinned, _, _ = spst.binned_statistic(behav['intantime'], values=trueX, statistic='mean', bins=windows2)
-                decodingErrorHall.append((np.nansum((trueXbinned - decodedX)**2))**(0.5))
-                plt.subplot(12,12,count)
-                plt.plot(windows, decodedX, 'r')
-                plt.plot(behav['intantime'], trueX, 'b')
+                plt.subplot(7,6,count)
+                plt.plot(windows, decodedXHC, 'mediumorchid', linewidth=1.5)
+                plt.plot(windows, decodedXV2, 'lime', linewidth=1.5)
+                plt.plot(windows, decodedXV1, 'gold', linewidth=1.5)
+                plt.plot(windows, decodedXiHC, 'fuchsia', linewidth=1.5)
+                plt.plot(behav['intantime'], trueX, 'k', linewidth=0.5)
                 plt.xticks([])
+                plt.yticks([0,100], [0, 530])
                 count += 1
     plt.suptitle('Hallway: '+str(hallnum))
-    plt.show()
-    decodingError.append(np.array(decodingErrorHall))
-decodingError = np.array(decodingError)
+    plt.savefig(os.path.join('opPV','Hall'+str(hallnum)+'.png'))
