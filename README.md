@@ -7,7 +7,7 @@ a very small segment of scripts used during my PhD in McNaughton Lab
 3. CG_Monosyn: compute auto-correlogram, cross-correlogram and monosynaptic connections between neurons using CellExplorer (https://cellexplorer.org/)
 4. IntanCorrTests: intan correlation test for checking shorts
 5. PVanalysis: compute population sparsity, PCA scree plot, raster map embedding, low-d manifold (https://github.com/MouseLand/rastermap)
-6. ReactivationAnalysis: reactivation strength using PCA + ICA (https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2940043/)
+6. SequenceAnalysis: theta sequence decoding + reactivation strength using PCA
 7. kc_analysis: k-complex detection script
 8. placecelldecoding: bayesian decoding using maximum-likelihood approach (https://pubmed.ncbi.nlm.nih.gov/8036517/)
 9. postEphysSorting: post kilosort processing based on Allen Institute metrics (add link)
